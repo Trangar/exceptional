@@ -9,7 +9,7 @@
 //! #[macro_use]
 //! extern crate serde_derive;
 //!
-//! #[derive(Serialize, Deserialize)]
+//! #[derive(Serialize, Deserialize, Clone)]
 //! pub struct SomeImportantAction {        // All structs must be Serializable and Deserializable to express them in the #[test]
 //!     pub var_1: u32,
 //!     pub var_2: u32,
@@ -141,38 +141,49 @@ impl<'a, E: Executable + 'a> UnitTest<'a, E> {
         file.write_all(text.as_bytes())?;
         Ok(())
     }
+}
 
-    /// Generate the code for a unit test based on the data in this struct.
-    pub fn to_string(&self) -> String {
-        let mut result = String::new();
-        result += "/// Automatically generated unit test for Executable\n";
-        result += &format!("/// {}\n", self.executable.description());
-        result += &format!("/// generated at {}\n", self.time.to_rfc2822());
-        result += "///\n";
-        result += &format!("/// exception was {:?}\n", self.error);
-        result += "#[test]\n";
-        result += &format!("pub fn test_{}() {{\n", self.time.timestamp_millis());
-        result += "\tuse exceptional::Executable;\n";
-        result += &format!(
-            "\tlet obj_json = r#\"{}\"#;\n",
+impl<'a, E: Executable + 'a> std::fmt::Display for UnitTest<'a, E> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(
+            fmt,
+            "/// Automatically generated unit test for Executable\n"
+        )?;
+        writeln!(fmt, "/// {}", self.executable.description())?;
+        writeln!(fmt, "/// generated at {}", self.time.to_rfc2822())?;
+        writeln!(fmt)?;
+        writeln!(fmt, "/// exception was {:?}", self.error)?;
+        writeln!(fmt, "#[test]")?;
+        writeln!(fmt, "pub fn test_{}() {{", self.time.timestamp_millis())?;
+        writeln!(fmt, "\tuse exceptional::Executable;")?;
+        writeln!(
+            fmt,
+            "\tlet obj_json = r#\"{}\"#;",
             serde_json::to_string_pretty(&self.executable)
                 .expect("Could not serialize the executable")
-        );
-        result += &format!("\tlet mut obj: {} = ::serde_json::from_str(obj_json).expect(\"Could not deserialize json\");\n", self.executable.full_path());
-        result += "\t\n";
-        result += &format!(
-            "\tlet arg_json = r#\"{}\"#;\n",
+        )?;
+        writeln!(fmt, "\tlet mut obj: {} = ::serde_json::from_str(obj_json).expect(\"Could not deserialize json\");", self.executable.full_path())?;
+        writeln!(fmt, "\t")?;
+        writeln!(
+            fmt,
+            "\tlet arg_json = r#\"{}\"#;",
             serde_json::to_string_pretty(&self.arguments).expect("Could not serialize arguments")
-        );
-        result += "\tlet args = ::serde_json::from_str(arg_json).expect(\"Could not deserialize json\");\n";
-        result += "\n";
-        result += "\tif let Err(e) = obj.execute(&args) {\n";
-        result += "\t\tprintln!(\"Could not execute {}\", obj.description());\n";
-        result += "\t\tprintln!(\"{:?}\", e);\n";
-        result += "\t\tpanic!();\n";
-        result += "\t}\n";
-        result += "}\n\n";
+        )?;
+        writeln!(
+            fmt,
+            "\tlet args = ::serde_json::from_str(arg_json).expect(\"Could not deserialize json\");"
+        )?;
+        writeln!(fmt)?;
+        writeln!(fmt, "\tif let Err(e) = obj.execute(&args) {{")?;
+        writeln!(
+            fmt,
+            "\t\tprintln!(\"Could not execute {{}}\", obj.description());"
+        )?;
+        writeln!(fmt, "\t\tprintln!(\"{{:?}}\", e);")?;
+        writeln!(fmt, "\t\tpanic!();")?;
+        writeln!(fmt, "\t}}")?;
+        writeln!(fmt, "}}")?;
 
-        result
+        Ok(())
     }
 }
